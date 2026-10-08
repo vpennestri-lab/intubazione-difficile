@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predizione di Intubazione Difficile</title>
+<style>
+:root{
+  --bg:#f6f5f1; --panel:#ffffff; --ink:#1c2321; --ink-soft:#4d5652; --line:#dedad0;
+  --accent:#1f5f7a; --accent-bg:#e3eff4;
+  --ok:#2f6d3b; --ok-bg:#e7f0e6;
+  --caution:#a3641c; --caution-bg:#f6ecdd;
+  --avoid:#a5322c; --avoid-bg:#f7e7e5;
+  --radius:10px;
+  --serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", "Menlo", monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;padding-bottom:60px;}
+header.top{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;}
+.top-inner{max-width:980px;margin:0 auto;padding:18px 20px 0 20px;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.02em;color:var(--ink-soft);margin:0 0 4px 0;}
+h1.title{font-family:var(--serif);font-weight:600;font-size:clamp(20px,4.5vw,28px);margin:0 0 4px 0;letter-spacing:-.01em;}
+p.subtitle{margin:0 0 14px 0;color:var(--ink-soft);font-size:14px;max-width:660px;}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;}
+nav.tabs::-webkit-scrollbar{display:none;}
+nav.tabs button{flex:0 0 auto;background:none;border:none;border-bottom:3px solid transparent;padding:10px 12px 12px 12px;font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;}
+nav.tabs button.active{color:var(--ink);border-bottom-color:var(--accent);}
+nav.tabs button:hover{color:var(--ink);}
+main{max-width:980px;margin:0 auto;padding:24px 20px 0 20px;}
+section.view{display:none;}
+section.view.active{display:block;}
+.section-head{margin-bottom:16px;}
+.section-head h2{font-family:var(--serif);font-size:22px;font-weight:600;margin:0 0 6px 0;}
+.section-head p{margin:0;color:var(--ink-soft);font-size:14.5px;max-width:700px;}
+h3.sub{font-family:var(--serif);font-size:17px;margin:22px 0 10px 0;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+.card h4{font-family:var(--serif);font-size:16px;margin:0 0 6px 0;}
+.card p{margin:0 0 8px 0;font-size:14px;}
+.card p:last-child{margin-bottom:0;}
+.note{font-size:13.5px;color:var(--ink-soft);margin-top:8px;line-height:1.55;}
+.note strong{color:var(--ink);}
+.tbl-wrap{overflow-x:auto;margin-bottom:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px;}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;}
+th{background:var(--bg);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);font-weight:600;}
+tr:last-child td{border-bottom:none;}
+td.hi{font-weight:600;}
+.callout{border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;font-size:14px;line-height:1.55;}
+.callout .lbl{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;font-weight:700;}
+.callout.avoid{background:var(--avoid-bg);border:1px solid #e2b6b2;} .callout.avoid .lbl{color:var(--avoid);}
+.callout.ok{background:var(--ok-bg);border:1px solid #bcd8bb;} .callout.ok .lbl{color:var(--ok);}
+.callout.caution{background:var(--caution-bg);border:1px solid #e6cc9e;} .callout.caution .lbl{color:var(--caution);}
+.callout.info{background:var(--accent-bg);border:1px solid #b9d3de;} .callout.info .lbl{color:var(--accent);}
+.tool{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:20px;}
+.tool h3{font-family:var(--serif);font-size:17px;margin:0 0 4px 0;}
+.tool .src{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-bottom:14px;}
+.field{margin-bottom:12px;}
+.field label.flabel{display:block;font-size:12px;font-family:var(--mono);color:var(--ink-soft);margin-bottom:5px;text-transform:uppercase;letter-spacing:.03em;}
+.chk{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer;}
+.chk:last-of-type{border-bottom:none;}
+.chk input{margin-top:3px;flex:0 0 auto;width:18px;height:18px;}
+.chk label{font-size:14px;cursor:pointer;flex:1;}
+.chk .pts{font-family:var(--mono);font-size:12px;color:var(--ink-soft);flex:0 0 auto;}
+select,input[type=number]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:14.5px;color:var(--ink);font-family:var(--sans);}
+select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%234d5652' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;}
+.result{margin-top:14px;}
+.result .big{font-family:var(--serif);font-size:28px;font-weight:600;}
+.pill{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px;}
+.risk-low{background:var(--ok-bg);color:var(--ok);}
+.risk-mid{background:var(--caution-bg);color:var(--caution);}
+.risk-high{background:var(--avoid-bg);color:var(--avoid);}
+.result .detail{font-size:13.5px;color:var(--ink-soft);margin-top:8px;line-height:1.55;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:560px){.grid2{grid-template-columns:1fr;}}
+
+/* ---------- Report / stampa ---------- */
+.btn{display:inline-block;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:14.5px;font-weight:600;font-family:var(--sans);cursor:pointer;}
+.btn:hover{filter:brightness(1.08);}
+.btn.ghost{background:none;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;font-size:13.5px;margin-top:12px;}
+.report-controls{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:18px;}
+.report-controls h3{font-family:var(--serif);font-size:17px;margin:0 0 12px 0;}
+.report-controls textarea{width:100%;min-height:70px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:14.5px;font-family:var(--sans);color:var(--ink);resize:vertical;}
+.report-controls input[type=text],.report-controls input[type=datetime-local]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:14.5px;color:var(--ink);font-family:var(--sans);}
+.inc-list{margin:4px 0 12px 0;}
+.inc-list label{display:flex;align-items:center;gap:10px;font-size:14px;padding:5px 0;cursor:pointer;}
+.inc-list input{width:17px;height:17px;flex:0 0 auto;}
+.print-help{font-size:13px;color:var(--ink-soft);margin-top:10px;line-height:1.55;}
+.sheet{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:26px 28px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+.sheet h2.sheet-title{font-family:var(--serif);font-size:21px;margin:0 0 2px 0;}
+.sheet .muted{color:var(--ink-soft);font-size:13px;}
+.sheet table.meta{min-width:0;width:100%;border-collapse:collapse;margin:14px 0 6px 0;font-size:13.5px;}
+.sheet table.meta td{border:1px solid var(--line);padding:6px 10px;}
+.sheet table.meta td.k{width:24%;background:var(--bg);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);}
+.sheet .summary{border:1px solid var(--ink);border-radius:6px;padding:10px 14px;margin:14px 0;font-size:14px;}
+.sheet .summary strong{font-family:var(--serif);}
+.rblock{margin:16px 0;}
+.rblock h4{font-family:var(--serif);font-size:16px;margin:0 0 2px 0;}
+.rblock .rsrc{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;}
+.rscore{font-family:var(--serif);font-size:18px;font-weight:600;margin:4px 0;}
+.rflag{display:inline-block;border:1.5px solid currentColor;border-radius:14px;padding:1px 9px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.03em;margin-left:8px;vertical-align:middle;}
+.rflag.risk-low{color:var(--ok);background:none;} .rflag.risk-mid{color:var(--caution);background:none;} .rflag.risk-high{color:var(--avoid);background:none;}
+.sheet table.items{min-width:0;width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px;}
+.sheet table.items th,.sheet table.items td{border:1px solid var(--line);padding:4px 8px;}
+.sheet table.items th{background:var(--bg);}
+.sheet table.items td.pt{text-align:right;width:52px;font-family:var(--mono);}
+.rnote{font-size:12px;color:var(--ink-soft);line-height:1.5;margin:4px 0 0 0;}
+.sheet .notes-box{border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:13.5px;white-space:pre-wrap;margin-top:6px;}
+.sheet .foot{margin-top:18px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-soft);line-height:1.5;}
+@page{size:A4;margin:12mm 14mm 14mm 14mm;}
+@media print{
+  html,body{background:#fff !important;padding:0 !important;}
+  header.top,footer,nav.tabs,.no-print,.report-controls,#view-report .section-head{display:none !important;}
+  main{max-width:none !important;padding:0 !important;}
+  section.view{display:none !important;}
+  #view-report{display:block !important;}
+  .sheet{border:none !important;box-shadow:none !important;padding:0 !important;border-radius:0 !important;}
+  body{font-size:11pt;color:#000;}
+  .rblock,.summary{page-break-inside:avoid;break-inside:avoid;}
+  .rblock{margin:10px 0 !important;}
+  .sheet h2.sheet-title{font-size:19px;}
+  .rscore{font-size:16px !important;margin:2px 0 !important;}
+  .sheet table.items{font-size:11px !important;margin:4px 0 !important;}
+  .sheet table.items th,.sheet table.items td{padding:2px 7px !important;}
+  .sheet table.meta{margin:8px 0 4px 0 !important;}
+  .sheet table.meta td{padding:4px 9px !important;}
+  .sheet .summary{margin:8px 0 !important;padding:7px 12px !important;}
+  .sheet .foot{margin-top:10px !important;padding-top:6px !important;page-break-inside:avoid;break-inside:avoid;}
+  tr{page-break-inside:avoid;break-inside:avoid;}
+  .rflag,.pill{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+footer{max-width:980px;margin:30px auto 0 auto;padding:16px 20px 0 20px;border-top:1px solid var(--line);color:var(--ink-soft);font-size:12px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <p class="eyebrow">Riferimento clinico — Anestesia &amp; Terapia Intensiva</p>
+    <h1 class="title">Predizione di Intubazione Difficile</h1>
+    <p class="subtitle">Test clinici e scores validati per la valutazione preoperatoria e in emergenza delle vie aeree dell'adulto: evidenze, calcolatori interattivi e limiti.</p>
+    <nav class="tabs" id="tabs">
+      <button data-view="home" class="active">Panoramica</button>
+      <button data-view="test">Test singoli</button>
+      <button data-view="egri">El-Ganzouri</button>
+      <button data-view="wilson">Wilson</button>
+      <button data-view="lemon">LEMON</button>
+      <button data-view="macocha">MACOCHA (ICU)</button>
+      <button data-view="lr">Probabilità post-test</button>
+      <button data-view="report">Report / PDF</button>
+      <button data-view="refs">Bibliografia</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ HOME ============ -->
+<section class="view active" id="view-home">
+  <div class="section-head">
+    <h2>Prevedere la via aerea difficile: cosa sappiamo davvero</h2>
+    <p>La valutazione preoperatoria delle vie aeree è raccomandata dalle linee guida, ma i singoli test hanno una sensibilità bassa o moderata: servono a pianificare, non a escludere il rischio. Questa app riunisce i test e gli scores più studiati, con i dati di accuratezza delle principali revisioni sistematiche (Cochrane 2018, JAMA 2019).</p>
+  </div>
+
+  <div class="callout avoid">
+    <span class="lbl">Messaggio chiave</span>
+    Una valutazione negativa <strong>non esclude</strong> una via aerea difficile. Nella revisione Cochrane (133 studi, oltre 844.000 partecipanti) nessuno dei test comuni al letto del paziente è risultato adatto a individuare le vie aeree difficili inattese: molte vengono mancate. Preparare sempre un piano alternativo, qualunque sia il punteggio.
+  </div>
+
+  <h3 class="sub">Definizioni usate negli studi</h3>
+  <div class="card">
+    <p><strong>Laringoscopia difficile</strong>: tipicamente grado III–IV della classificazione di Cormack-Lehane (grado I: visione di gran parte della glottide; II: solo parte posteriore della glottide o aritenoidi; III: solo epiglottide; IV: nessuna struttura glottica, nemmeno l'epiglottide).</p>
+    <p><strong>Intubazione difficile</strong>: definita in modo non uniforme; in vari studi si usano il numero di tentativi (es. tre o più) o la Intubation Difficulty Scale (IDS ≥5). Per questo i risultati di studi diversi non sono sempre confrontabili.</p>
+    <p class="note"><strong>Incidenza</strong>: la laringoscopia difficile in sala operatoria si colloca, secondo gli studi, tra il 2% e il 16%; nelle revisioni cliniche si usa spesso una probabilità di base del 10%. In terapia intensiva è risultata dell'11,3% nello studio originale MACOCHA. Questa revisione riguarda l'adulto: il bambino non è trattato.</p>
+  </div>
+
+  <h3 class="sub">Sintesi dei test e degli scores</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Strumento</th><th>Cosa misura</th><th>Soglia positiva</th><th>Prestazioni riportate</th></tr></thead>
+      <tbody>
+        <tr><td class="hi">Mallampati modificato</td><td>Visibilità delle strutture orofaringee</td><td>Classe III–IV</td><td>Cochrane (IOT difficile): sens. 51%, spec. 87%. JAMA: LR+ 4,1</td></tr>
+        <tr><td class="hi">Upper lip bite test</td><td>Mobilità mandibolare e dentatura</td><td>Classe III</td><td>Cochrane (laringoscopia): sens. 67%, spec. 92%. JAMA: LR+ 14</td></tr>
+        <tr><td class="hi">Distanza tiro-mentoniera</td><td>Spazio mandibolare</td><td>&lt;6–6,5 cm (variabile)</td><td>Cochrane (laringoscopia): sens. 37%, spec. 89%</td></tr>
+        <tr><td class="hi">Apertura della bocca</td><td>Distanza interincisiva</td><td>&lt;3–4 cm</td><td>Cochrane (laringoscopia): sens. 22%, spec. 95%</td></tr>
+        <tr><td class="hi">El-Ganzouri (EGRI/SARI)</td><td>Score a 7 voci, 0–12</td><td>≥4</td><td>Sens. aggregata 54% (meta-analisi 2024)</td></tr>
+        <tr><td class="hi">Wilson</td><td>Score a 5 voci, 0–10</td><td>≥2 (o &gt;2)</td><td>Sens. aggregata 42% (meta-analisi 2024). JAMA: LR+ 9,1</td></tr>
+        <tr><td class="hi">LEMON</td><td>Checklist per l'emergenza</td><td>Nessuna soglia validata</td><td>Usata come promemoria sistematico</td></tr>
+        <tr><td class="hi">MACOCHA</td><td>Score per la terapia intensiva, 0–12</td><td>≥3</td><td>Validazione: sens. 73%, spec. 89%, NPV 98%, PPV 36%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub">Come usare queste informazioni</h3>
+  <div class="card">
+    <p><strong>1. Combinare anamnesi ed esame.</strong> La storia di intubazione difficile è il reperto con il rapporto di verosimiglianza più alto (LR+ 16–19 nella revisione JAMA), davanti all'upper lip bite test di classe III (LR+ 14).</p>
+    <p><strong>2. Non fidarsi del singolo test negativo.</strong> Anche i migliori reperti negativi riducono la probabilità solo in modo modesto (LR− 0,42–0,60).</p>
+    <p><strong>3. Gli scores multivariabili non hanno dimostrato un vantaggio netto.</strong> In un trial a cluster con 64.273 pazienti (Nørskov, 2016), l'uso del Simplified Airway Risk Index, cioè l'El-Ganzouri, non ha migliorato in modo significativo l'individuazione dell'intubazione difficile rispetto alla valutazione abituale.</p>
+    <p><strong>4. In emergenza e in terapia intensiva</strong> la valutazione deve essere rapida e mirata: la distanza interincisiva e l'upper lip bite test sono i reperti più utili.</p>
+    <p class="note">Per gli algoritmi di gestione si rimanda alle linee guida (es. Difficult Airway Society 2015 e American Society of Anesthesiologists 2022). Gli scores supportano la pianificazione e non sostituiscono il giudizio clinico.</p>
+  </div>
+</section>
+
+<!-- ============ TEST SINGOLI ============ -->
+<section class="view" id="view-test">
+  <div class="section-head">
+    <h2>Test singoli al letto del paziente</h2>
+    <p>Tecnica, soglie e accuratezza dei test più usati, con i dati aggregati della revisione Cochrane (Roth 2018) e della revisione JAMA (Detsky 2019).</p>
+  </div>
+
+  <h3 class="sub">Accuratezza aggregata (Cochrane 2018)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Test</th><th>Laringoscopia difficile: sensibilità (IC 95%)</th><th>Laringoscopia difficile: specificità (IC 95%)</th><th>IOT difficile: sensibilità</th></tr></thead>
+      <tbody>
+        <tr><td class="hi">Upper lip bite test</td><td>0,67 (0,45–0,83)</td><td>0,92 (0,86–0,95)</td><td>—</td></tr>
+        <tr><td class="hi">Mallampati modificato</td><td>0,53 (0,47–0,59)</td><td>0,80 (0,74–0,85)</td><td>0,51 (0,40–0,61)</td></tr>
+        <tr><td class="hi">Distanza tiro-mentoniera</td><td>0,37 (0,28–0,47)</td><td>0,89 (0,84–0,93)</td><td>0,24 (0,12–0,43)</td></tr>
+        <tr><td class="hi">Apertura della bocca</td><td>0,22 (0,13–0,33)</td><td>0,95 (0,88–0,98)</td><td>0,27 (0,16–0,41)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note" style="margin-top:-6px;margin-bottom:16px;">Per l'intubazione difficile, specificità tra 0,87 (Mallampati modificato) e 0,93 (apertura della bocca). L'upper lip bite test ha mostrato la sensibilità più alta nel predire la laringoscopia difficile. Il confronto riguarda adulti senza anomalie evidenti delle vie aeree.</div>
+
+  <h3 class="sub">Reperti con il miglior rapporto di verosimiglianza (JAMA 2019)</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Reperto</th><th>LR+ (IC 95%)</th><th>LR−</th></tr></thead>
+      <tbody>
+        <tr><td class="hi">Storia di intubazione difficile</td><td>16–19</td><td>—</td></tr>
+        <tr><td class="hi">Upper lip bite test, classe III</td><td>14 (8,9–22)</td><td>0,42</td></tr>
+        <tr><td class="hi">Wilson, punteggio &gt;2–3</td><td>9,1 (5,1–16)</td><td>0,60</td></tr>
+        <tr><td class="hi">Distanza ioido-mentoniera ridotta (&lt;3–5,5 cm)</td><td>6,4 (4,1–10)</td><td>—</td></tr>
+        <tr><td class="hi">Mallampati modificato ≥3</td><td>4,1 (3,0–5,6)</td><td>0,52</td></tr>
+        <tr><td class="hi">Russamento</td><td>3,4</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note" style="margin-top:-6px;margin-bottom:16px;">Con una probabilità di base del 10%, un upper lip bite test di classe III porta la probabilità di intubazione difficile oltre il 60%. Retrognatia e ridotta mobilità del collo sono tra i reperti più predittivi, ma senza un valore numerico nelle fonti consultate. Puoi calcolare la probabilità nella scheda &laquo;Probabilità post-test&raquo;.</div>
+
+  <h3 class="sub">Tecnica e interpretazione</h3>
+  <div class="card">
+    <h4>Mallampati modificato (Samsoon e Young, 1987)</h4>
+    <p>Paziente seduto, bocca aperta al massimo e lingua protrusa, <strong>senza fonazione</strong> (la fonazione può migliorare la classe). Si registra quali strutture sono visibili.</p>
+    <p><strong>Classe I</strong>: palato molle, ugola, fauci e pilastri. <strong>Classe II</strong>: palato molle, parte maggiore dell'ugola e fauci. <strong>Classe III</strong>: palato molle e base dell'ugola. <strong>Classe IV</strong>: palato molle non visibile (solo palato duro). Si dicotomizza in classi I–II e III–IV.</p>
+    <p class="note">Il Mallampati originale (1985) aveva tre classi; la classe IV è stata aggiunta da Samsoon e Young. La classe aumenta con la gravidanza (in uno studio su 242 gestanti, la classe IV è cresciuta del 34% a 38 settimane rispetto al primo trimestre) ed è associata all'apnea ostruttiva del sonno.</p>
+  </div>
+  <div class="card">
+    <h4>Upper lip bite test (Khan, 2003)</h4>
+    <p>Si chiede al paziente di mordere il labbro superiore con gli incisivi inferiori. <strong>Classe I</strong>: gli incisivi inferiori mordono il labbro sopra la linea del vermiglio. <strong>Classe II</strong>: mordono sotto la linea del vermiglio. <strong>Classe III</strong>: non riescono a raggiungere il labbro superiore.</p>
+    <p class="note">È il test singolo con la migliore sensibilità e il rapporto di verosimiglianza più alto. In terapia intensiva è tra i reperti raccomandati per una valutazione rapida. Non è applicabile se il paziente è edentulo o non collabora.</p>
+  </div>
+  <div class="card">
+    <h4>Distanze e mobilità</h4>
+    <p><strong>Distanza tiro-mentoniera</strong>: dal mento alla cartilagine tiroidea, a collo esteso e bocca chiusa. Le soglie variano (da &lt;4 a &lt;7 cm); l'El-Ganzouri usa 6,5 e 6,0 cm.</p>
+    <p><strong>Distanza ioido-mentoniera</strong>: dal mento all'osso ioide. Nella revisione JAMA l'intervallo di soglia era &lt;3–5,5 cm.</p>
+    <p><strong>Distanza sterno-mentoniera</strong>: dal mento all'incisura sternale a testa in massima estensione e bocca chiusa. Soglie non standardizzate.</p>
+    <p><strong>Distanza interincisiva (apertura della bocca)</strong>: tra incisivi superiori e inferiori a bocca massimamente aperta. L'El-Ganzouri usa 4 cm, il MACOCHA 3 cm.</p>
+    <p><strong>Mobilità del collo</strong>: nell'El-Ganzouri, &gt;90° normale, 80–90° ridotta, &lt;80° molto ridotta.</p>
+    <p class="note">Altri indicatori studiati: circonferenza del collo ≥40 cm, BMI ≥30 kg/m², rapporto circonferenza del collo/distanza tiro-mentoniera ≥5. L'ecografia delle vie aeree (per esempio la distanza cute-epiglottide) è in studio, ma in un confronto recente non ha mostrato risultati migliori della valutazione clinica.</p>
+  </div>
+</section>
+
+<!-- ============ EGRI ============ -->
+<section class="view" id="view-egri">
+  <div class="section-head">
+    <h2>El-Ganzouri Risk Index (EGRI / SARI)</h2>
+    <p>Score multivariabile a sette voci (0–12), pubblicato nel 1996 e ancora molto usato, chiamato anche Simplified Airway Risk Index. Soglia classica: ≥4.</p>
+  </div>
+  <div class="tool">
+    <h3>Calcola il punteggio</h3>
+    <div class="src">El-Ganzouri AR et al. Anesth Analg 1996;82:1197-1204</div>
+    <div id="tool-egri"></div>
+    <div class="result" id="res-egri"></div>
+  </div>
+  <div class="card">
+    <p class="note" style="margin-top:0;"><strong>Prestazioni</strong>: in una meta-analisi del 2024 la sensibilità aggregata era 0,54; in uno studio di validazione prospettico su 220 pazienti, alla soglia 4, sensibilità 35,7% e specificità 89,1%. L'accuratezza dipende molto dalla popolazione e dal riferimento usato (laringoscopia convenzionale o videolaringoscopia).</p>
+    <p class="note"><strong>Soglia</strong>: la soglia originale è ≥4; alcune fonti citano ≥3 per aumentare la sensibilità. Nel trial SARI (64.273 pazienti) l'uso dello score non ha migliorato in modo significativo l'individuazione dell'intubazione difficile.</p>
+    <p class="note"><strong>Uso nella pratica</strong>: in una serie monocentrica di 1000 pazienti con tumori testa-collo, gli autori propongono laringoscopia (preferibilmente videolaringoscopica) come piano A con punteggio &lt;4 e intubazione da sveglio con fibroscopio o videolaringoscopio con punteggio &gt;7. È una proposta di centro, non una raccomandazione di linea guida.</p>
+  </div>
+</section>
+
+<!-- ============ WILSON ============ -->
+<section class="view" id="view-wilson">
+  <div class="section-head">
+    <h2>Wilson Risk Sum Score</h2>
+    <p>Cinque fattori, ciascuno con tre livelli (0, 1, 2), per un totale da 0 a 10. Pubblicato nel 1988.</p>
+  </div>
+  <div class="tool">
+    <h3>Calcola il punteggio</h3>
+    <div class="src">Wilson ME et al. Br J Anaesth 1988;61:211-216</div>
+    <div id="tool-wilson"></div>
+    <div class="result" id="res-wilson"></div>
+  </div>
+  <div class="card">
+    <p class="note" style="margin-top:0;"><strong>Soglia</strong>: nell'articolo originale un punteggio ≥2 individuava circa il 75% delle intubazioni difficili con circa il 12% di falsi positivi. Molti studi più recenti usano &gt;2 per aumentare la specificità; la revisione JAMA 2019 riporta LR+ 9,1 per punteggi &gt;2–3.</p>
+    <p class="note"><strong>Prestazioni</strong>: sensibilità aggregata 0,42 nella meta-analisi del 2024. Il tasso di falsi positivi è alto alla soglia più bassa.</p>
+  </div>
+</section>
+
+<!-- ============ LEMON ============ -->
+<section class="view" id="view-lemon">
+  <div class="section-head">
+    <h2>LEMON</h2>
+    <p>Checklist mnemonica per la valutazione rapida delle vie aeree in emergenza (Reed 2005): Look, Evaluate, Mallampati, Obstruction, Neck.</p>
+  </div>
+  <div class="tool">
+    <h3>Segna i criteri presenti</h3>
+    <div class="src">Reed MJ et al. Emerg Med J 2005;22:99-102</div>
+    <div id="tool-lemon"></div>
+    <div class="result" id="res-lemon"></div>
+  </div>
+  <div class="callout caution">
+    <span class="lbl">Limite</span>
+    Per LEMON non esiste una soglia di punteggio validata in modo univoco: il conteggio dei criteri è un promemoria pratico, non una stima di probabilità. La regola 3-3-2 valuta apertura della bocca (3 dita), distanza mento-ioide (3 dita) e distanza ioide-incisura tiroidea (2 dita).
+  </div>
+</section>
+
+<!-- ============ MACOCHA ============ -->
+<section class="view" id="view-macocha">
+  <div class="section-head">
+    <h2>MACOCHA score (terapia intensiva)</h2>
+    <p>Score a sette voci (0–12) sviluppato su 1000 intubazioni in 42 terapie intensive e validato su 400 intubazioni in 18 altre. Considera paziente, patologia e operatore.</p>
+  </div>
+  <div class="tool">
+    <h3>Calcola il punteggio</h3>
+    <div class="src">De Jong A et al. Am J Respir Crit Care Med 2013;187:832-839</div>
+    <div id="tool-macocha"></div>
+    <div class="result" id="res-macocha"></div>
+  </div>
+  <div class="card">
+    <p class="note" style="margin-top:0;"><strong>Prestazioni nella coorte di validazione</strong> (prevalenza di intubazione difficile 8%): AUC 0,86, sensibilità 73%, specificità 89%, valore predittivo negativo 98%, valore predittivo positivo 36%, alla soglia di 3 individuata con analisi ROC.</p>
+    <p class="note"><strong>Conseguenze</strong>: con punteggio ≥3, l'algoritmo degli autori prevede la presenza di due operatori, una lama metallica e un mandrino malleabile.</p>
+    <p class="note"><strong>Cautele</strong>: lo score non è stato validato in sala operatoria né per la videolaringoscopia. In altre coorti l'accuratezza è risultata variabile (per esempio AUC 0,66 in pazienti oncologici critici).</p>
+  </div>
+</section>
+
+<!-- ============ LR ============ -->
+<section class="view" id="view-lr">
+  <div class="section-head">
+    <h2>Probabilità post-test per un singolo reperto</h2>
+    <p>Dato un rischio di base, mostra come cambia la probabilità di intubazione difficile in presenza (o assenza) di un reperto, con i rapporti di verosimiglianza della revisione JAMA 2019.</p>
+  </div>
+  <div class="tool">
+    <h3>Calcola</h3>
+    <div class="src">Detsky ME et al. JAMA 2019;321:493-503</div>
+    <div class="grid2">
+      <div class="field">
+        <label class="flabel" for="lr-pre">Probabilità di base (%)</label>
+        <input type="number" id="lr-pre" min="1" max="90" step="1" value="10">
+      </div>
+      <div class="field">
+        <label class="flabel" for="lr-state">Reperto</label>
+        <select id="lr-state">
+          <option value="pos">Presente (positivo)</option>
+          <option value="neg">Assente (negativo)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label class="flabel" for="lr-finding">Tipo di reperto</label>
+      <select id="lr-finding"></select>
+    </div>
+    <div class="result" id="res-lr"></div>
+  </div>
+  <div class="callout avoid">
+    <span class="lbl">Non combinare i reperti</span>
+    I rapporti di verosimiglianza di test diversi <strong>non vanno moltiplicati tra loro</strong>: i reperti sono correlati (per esempio Mallampati, upper lip bite test e mobilità mandibolare) e il calcolo sovrastimerebbe la probabilità. Per una valutazione combinata usare uno score multivariabile o il giudizio clinico. Il valore di base va adattato alla popolazione (ad esempio più alto in testa-collo, obesità, apnee notturne).
+  </div>
+</section>
+
+<!-- ============ REPORT ============ -->
+<section class="view" id="view-report">
+  <div class="section-head">
+    <h2>Report con gli scores: stampa o PDF</h2>
+    <p>Raccoglie in un foglio A4 gli strumenti compilati nelle altre schede, con i dati del paziente e della valutazione. I dati restano nel tuo browser: non vengono inviati né salvati.</p>
+  </div>
+
+  <div class="report-controls">
+    <h3>Dati della valutazione</h3>
+    <div class="grid2">
+      <div class="field"><label class="flabel" for="rep-patient">Paziente (nome o ID, facoltativo)</label><input type="text" id="rep-patient" autocomplete="off"></div>
+      <div class="field"><label class="flabel" for="rep-date">Data e ora</label><input type="datetime-local" id="rep-date"></div>
+    </div>
+    <div class="field"><label class="flabel" for="rep-operator">Valutatore (facoltativo)</label><input type="text" id="rep-operator" autocomplete="off"></div>
+    <div class="field"><label class="flabel" for="rep-notes">Note cliniche (facoltative)</label><textarea id="rep-notes" placeholder="Es. reperti aggiuntivi, piano di gestione della via aerea"></textarea></div>
+    <label class="flabel" style="display:block;margin-top:6px;">Strumenti da includere</label>
+    <div class="inc-list">
+      <label><input type="checkbox" id="inc-egri"> El-Ganzouri (EGRI)</label>
+      <label><input type="checkbox" id="inc-wilson"> Wilson</label>
+      <label><input type="checkbox" id="inc-lemon"> LEMON</label>
+      <label><input type="checkbox" id="inc-macocha"> MACOCHA (terapia intensiva)</label>
+      <label><input type="checkbox" id="inc-lr"> Probabilità post-test</label>
+    </div>
+    <button class="btn" id="btn-print" type="button">Stampa / Salva come PDF</button>
+    <div class="print-help">Si apre la finestra di stampa del browser. Per ottenere il <strong>file PDF</strong> scegli come destinazione «Salva come PDF» (su iPhone e iPad: Condividi, poi «Salva su File»). Gli strumenti si spuntano da soli quando li compili.</div>
+  </div>
+
+  <div class="sheet" id="report-sheet">
+    <h2 class="sheet-title">Valutazione predittiva della via aerea</h2>
+    <div class="muted">Intubazione orotracheale difficile, paziente adulto</div>
+    <div id="rep-meta"></div>
+    <div id="rep-summary"></div>
+    <div id="rep-body"></div>
+    <div id="rep-notes-out"></div>
+    <div class="foot">Gli scores supportano la pianificazione della gestione delle vie aeree e non sostituiscono il giudizio clinico: hanno sensibilità limitata e un punteggio sotto soglia non esclude una via aerea difficile. Preparare sempre un piano alternativo. Documento generato dall'app «Predizione di Intubazione Difficile».</div>
+  </div>
+</section>
+
+<!-- ============ REFS ============ -->
+<section class="view" id="view-refs">
+  <div class="section-head"><h2>Bibliografia principale</h2></div>
+  <div class="tbl-wrap">
+    <table><tbody>
+      <tr><td><strong>Revisioni sistematiche:</strong> Roth D, et al. Airway physical examination tests for detection of difficult airway management in apparently normal adult patients. Cochrane Database Syst Rev. 2018;5:CD008874. Versione sintetica: Roth D, et al. Bedside tests for predicting difficult airways: an abridged Cochrane diagnostic test accuracy systematic review. Anaesthesia. 2019;74:915-928.</td></tr>
+      <tr><td>Detsky ME, Jivraj N, Adhikari NK, et al. Will this patient be difficult to intubate? The Rational Clinical Examination systematic review. JAMA. 2019;321:493-503.</td></tr>
+      <tr><td>Evaluation of preoperative difficult airway prediction methods for adult patients without obvious airway abnormalities: a systematic review and meta-analysis. BMC Anesthesiology. 2024.</td></tr>
+      <tr><td>Xia M, et al. Expert consensus on difficult airway assessment. HepatoBiliary Surg Nutr. 2023.</td></tr>
+      <tr><td>Huitink JM. Airway triage: goodbye, difficult airway! Rassegna 2024 (PMC11338369).</td></tr>
+      <tr><td><strong>Mallampati e test singoli:</strong> Mallampati SR, et al. A clinical sign to predict difficult tracheal intubation: a prospective study. Can Anaesth Soc J. 1985;32:429-434.</td></tr>
+      <tr><td>Samsoon GLT, Young JRB. Difficult tracheal intubation: a retrospective study. Anaesthesia. 1987;42:487-490.</td></tr>
+      <tr><td>Khan ZH, Kashfi A, Ebrahimkhani E. A comparison of the upper lip bite test with modified Mallampati classification in predicting difficulty in endotracheal intubation. Anesth Analg. 2003;96:595-599.</td></tr>
+      <tr><td>Cormack RS, Lehane J. Difficult tracheal intubation in obstetrics. Anaesthesia. 1984;39:1105-1111.</td></tr>
+      <tr><td>Pilkington S, Carli F, Dakin MJ, et al. Increase in Mallampati score during pregnancy. Br J Anaesth. 1995;74:638-642.</td></tr>
+      <tr><td><strong>Scores:</strong> Wilson ME, Spiegelhalter D, Robertson JA, Lesser P. Predicting difficult intubation. Br J Anaesth. 1988;61:211-216.</td></tr>
+      <tr><td>El-Ganzouri AR, McCarthy RJ, Tuman KJ, Tanck EN, Ivankovich AD. Preoperative airway assessment: predictive value of a multivariate risk index. Anesth Analg. 1996;82:1197-1204.</td></tr>
+      <tr><td>Arné J, Descoins P, Fusciardi J, et al. Preoperative assessment for difficult intubation in general and ENT surgery: predictive value of a clinical multivariate risk index. Br J Anaesth. 1998;80:140-146.</td></tr>
+      <tr><td>Nørskov AK, Wetterslev J, Rosenstock CV, et al. Effects of using the simplified airway risk index vs usual airway assessment on unanticipated difficult tracheal intubation: a cluster randomized trial with 64,273 participants. Br J Anaesth. 2016;116:680-689.</td></tr>
+      <tr><td>A prospective validation and comparison of three multivariate models for prediction of difficult intubation in adult patients (PMC10068536).</td></tr>
+      <tr><td>El-Ganzouri multivariate risk index based airway management in head and neck cancer patients: a retrospective analysis of 1000 patients in a tertiary care center. J Anaesthesiol Clin Pharmacol. 2022.</td></tr>
+      <tr><td>Reed MJ, Dunn MJG, McKeown DW. Can an airway assessment score predict difficulty at intubation in the emergency department? Emerg Med J. 2005;22:99-102.</td></tr>
+      <tr><td>De Jong A, Molinari N, Terzi N, et al. Early identification of patients at risk for difficult intubation in the intensive care unit: development and validation of the MACOCHA score in a multicenter cohort study. Am J Respir Crit Care Med. 2013;187:832-839.</td></tr>
+      <tr><td>MACOCHA score to predict difficult intubation in critically ill cancer patients: a prospective observational study. Indian J Crit Care Med. 2025.</td></tr>
+      <tr><td><strong>Linee guida di gestione:</strong> Frerk C, et al. Difficult Airway Society 2015 guidelines for management of unanticipated difficult intubation in adults. Br J Anaesth. 2015;115:827-848.</td></tr>
+      <tr><td>Apfelbaum JL, et al. 2022 American Society of Anesthesiologists practice guidelines for management of the difficult airway. Anesthesiology. 2022;136:31-81.</td></tr>
+    </tbody></table>
+  </div>
+  <div class="callout avoid">
+    <span class="lbl">Uso clinico</span>
+    Strumento di consultazione per uso professionale: non sostituisce il giudizio clinico né i protocolli locali. I calcolatori riproducono punteggi pubblicati; verificare sempre input e risultato.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div>App di riferimento clinico — uso professionale. Dati di accuratezza tratti da revisioni sistematiche e studi originali citati in bibliografia.</div>
+</footer>
+
+<script>
+/* ---------- Definizione degli scores ---------- */
+const TOOLS = {
+  egri: {
+    max: 12,
+    items: [
+      {id:"mo", label:"Apertura della bocca (distanza interincisiva)", type:"select", opts:[["≥ 4 cm",0],["< 4 cm",1]]},
+      {id:"tmd", label:"Distanza tiro-mentoniera", type:"select", opts:[["> 6,5 cm",0],["6,0–6,5 cm",1],["< 6,0 cm",2]]},
+      {id:"mm", label:"Mallampati modificato", type:"select", opts:[["Classe I",0],["Classe II",1],["Classe III o IV",2]]},
+      {id:"neck", label:"Mobilità del collo", type:"select", opts:[["> 90°",0],["80–90°",1],["< 80°",2]]},
+      {id:"prog", label:"Capacità di protrudere la mandibola (prognatismo)", type:"select", opts:[["Possibile",0],["Non possibile",1]]},
+      {id:"wt", label:"Peso corporeo", type:"select", opts:[["< 90 kg",0],["90–110 kg",1],["> 110 kg",2]]},
+      {id:"hx", label:"Storia di intubazione difficile", type:"select", opts:[["Nessuna",0],["Dubbia",1],["Certa",2]]}
+    ],
+    interpret: function(s){
+      if(s>=4) return {cls:"risk-high", label:"Positivo (≥4): predetta intubazione difficile", detail:"Pianificare tecnica e dispositivi alternativi (es. videolaringoscopio, fibroscopio), operatore esperto e piano di soccorso. La sensibilità dello score è limitata: un valore sotto soglia non esclude la difficoltà."};
+      if(s===3) return {cls:"risk-mid", label:"Borderline (3): sotto la soglia classica", detail:"Alcune fonti usano la soglia ≥3. Valutare gli altri reperti e la storia clinica."};
+      return {cls:"risk-low", label:"Sotto soglia (<4): difficoltà non predetta", detail:"Non esclude una via aerea difficile inattesa: mantenere comunque pronto un piano alternativo."};
+    }
+  },
+  wilson: {
+    max: 10,
+    items: [
+      {id:"w", label:"Peso corporeo", type:"select", opts:[["< 90 kg",0],["90–110 kg",1],["> 110 kg",2]]},
+      {id:"hn", label:"Movimento di testa e collo", type:"select", opts:[["> 90°",0],["Circa 90°",1],["< 90°",2]]},
+      {id:"jaw", label:"Movimento della mandibola (distanza interincisiva)", type:"select", opts:[["> 5 cm",0],["= 5 cm",1],["< 5 cm",2]]},
+      {id:"mand", label:"Mandibola retrusa", type:"select", opts:[["Normale",0],["Moderata",1],["Severa",2]]},
+      {id:"buck", label:"Denti sporgenti (incisivi superiori prominenti)", type:"select", opts:[["Normali",0],["Moderati",1],["Severi",2]]}
+    ],
+    interpret: function(s){
+      if(s>=3) return {cls:"risk-high", label:"Positivo (>2): predetta intubazione difficile", detail:"Revisione JAMA 2019: LR+ 9,1 per punteggi >2–3 (LR− 0,60)."};
+      if(s===2) return {cls:"risk-mid", label:"Positivo alla soglia originale (≥2)", detail:"La soglia originale di Wilson è ≥2, con circa 12% di falsi positivi; molti studi usano >2 per aumentare la specificità."};
+      return {cls:"risk-low", label:"Sotto soglia (0–1)", detail:"Non esclude una via aerea difficile: la sensibilità dello score è limitata."};
+    }
+  },
+  lemon: {
+    max: 7,
+    items: [
+      {id:"l", label:"Look: aspetto esterno sfavorevole (obesità, barba folta, trauma facciale, macroglossia, collo corto, edentulia)", type:"check", pts:1},
+      {id:"e1", label:"Evaluate 3-3-2: apertura della bocca inferiore a 3 dita", type:"check", pts:1},
+      {id:"e2", label:"Evaluate 3-3-2: distanza mento-ioide inferiore a 3 dita", type:"check", pts:1},
+      {id:"e3", label:"Evaluate 3-3-2: distanza ioide-incisura tiroidea inferiore a 2 dita", type:"check", pts:1},
+      {id:"m", label:"Mallampati: classe III o IV", type:"check", pts:1},
+      {id:"o", label:"Obstruction: ostruzione o ostacolo (epiglottite, ascesso, tumore, trauma, edema)", type:"check", pts:1},
+      {id:"n", label:"Neck: mobilità cervicale ridotta (o immobilizzazione)", type:"check", pts:1}
+    ],
+    interpret: function(s){
+      if(s===0) return {cls:"risk-low", label:"Nessun criterio positivo", detail:"Non esclude una via aerea difficile. Non esiste una soglia validata per LEMON."};
+      return {cls:"risk-mid", label:s+" criteri positivi", detail:"Più criteri sono positivi, maggiore è l'attenzione richiesta: anticipare la difficoltà, scegliere il dispositivo e l'operatore più adatti e preparare il piano alternativo. Nessuna soglia numerica è validata."};
+    }
+  },
+  macocha: {
+    max: 12,
+    items: [
+      {id:"mm", label:"Mallampati III o IV", type:"check", pts:5},
+      {id:"osa", label:"Sindrome delle apnee ostruttive del sonno", type:"check", pts:2},
+      {id:"cs", label:"Ridotta mobilità del rachide cervicale", type:"check", pts:1},
+      {id:"mo", label:"Apertura della bocca limitata (< 3 cm)", type:"check", pts:1},
+      {id:"coma", label:"Coma", type:"check", pts:1},
+      {id:"hyp", label:"Ipossiemia severa (SpO₂ < 80%)", type:"check", pts:1},
+      {id:"op", label:"Operatore non anestesista", type:"check", pts:1}
+    ],
+    interpret: function(s){
+      if(s>=3) return {cls:"risk-high", label:"Positivo (≥3): predetta intubazione difficile", detail:"Nella validazione: sensibilità 73%, specificità 89%, PPV 36%. L'algoritmo degli autori prevede due operatori, lama metallica e mandrino malleabile."};
+      return {cls:"risk-low", label:"Sotto soglia (<3)", detail:"Valore predittivo negativo 98% nella coorte di validazione (prevalenza 8%). Non validato in sala operatoria né per la videolaringoscopia."};
+    }
+  }
+};
+
+function buildTool(key){
+  const t = TOOLS[key];
+  const box = document.getElementById("tool-"+key);
+  box.innerHTML = t.items.map(it=>{
+    if(it.type==="select"){
+      return `<div class="field"><label class="flabel" for="${key}-${it.id}">${it.label}</label><select id="${key}-${it.id}">${it.opts.map(o=>`<option value="${o[1]}">${o[0]} (+${o[1]})</option>`).join("")}</select></div>`;
+    }
+    return `<div class="chk"><input type="checkbox" id="${key}-${it.id}"><label for="${key}-${it.id}">${it.label}</label><span class="pts">+${it.pts}</span></div>`;
+  }).join("");
+  const render = ()=>{
+    let s = 0;
+    t.items.forEach(it=>{
+      const el = document.getElementById(key+"-"+it.id);
+      if(it.type==="select") s += parseInt(el.value);
+      else if(el.checked) s += it.pts;
+    });
+    const r = t.interpret(s);
+    document.getElementById("res-"+key).innerHTML =
+      `<div class="big">${s} / ${t.max}</div><span class="pill ${r.cls}">${r.label}</span><div class="detail">${r.detail}</div>`;
+  };
+  t.items.forEach(it=>document.getElementById(key+"-"+it.id).addEventListener("change", render));
+  render();
+}
+["egri","wilson","lemon","macocha"].forEach(buildTool);
+
+/* ---------- Probabilità post-test ---------- */
+const FINDINGS = [
+  {id:"ulbt", label:"Upper lip bite test, classe III", pos:14, lo:8.9, hi:22, neg:0.42},
+  {id:"wilson", label:"Wilson, punteggio >2–3", pos:9.1, lo:5.1, hi:16, neg:0.60},
+  {id:"mmt", label:"Mallampati modificato ≥3", pos:4.1, lo:3.0, hi:5.6, neg:0.52},
+  {id:"hx", label:"Storia di intubazione difficile", pos:16, lo:16, hi:19, neg:null},
+  {id:"hmd", label:"Distanza ioido-mentoniera ridotta (<3–5,5 cm)", pos:6.4, lo:4.1, hi:10, neg:null},
+  {id:"snore", label:"Russamento", pos:3.4, lo:3.4, hi:3.4, neg:null}
+];
+const lrSel = document.getElementById("lr-finding");
+lrSel.innerHTML = FINDINGS.map(f=>`<option value="${f.id}">${f.label}</option>`).join("");
+function post(prePct, lr){
+  const p = prePct/100, odds = p/(1-p)*lr;
+  return 100*odds/(1+odds);
+}
+function renderLR(){
+  const f = FINDINGS.find(x=>x.id===lrSel.value);
+  const pre = parseFloat(document.getElementById("lr-pre").value);
+  const state = document.getElementById("lr-state").value;
+  const out = document.getElementById("res-lr");
+  if(!(pre>0 && pre<100)){ out.innerHTML = ""; return; }
+  if(state==="neg"){
+    if(f.neg===null){
+      out.innerHTML = `<div class="callout caution"><span class="lbl">Dato non disponibile</span>Per questo reperto la revisione non riporta un rapporto di verosimiglianza negativo: l'assenza del reperto non permette di ridurre la probabilità in modo quantificabile.</div>`;
+      return;
+    }
+    const p2 = post(pre, f.neg);
+    out.innerHTML = `<div class="big">${p2.toFixed(1)}%</div><span class="pill risk-low">da ${pre}% a ${p2.toFixed(1)}% (LR− ${f.neg})</span><div class="detail">Un reperto negativo riduce la probabilità solo in modo modesto: la via aerea può essere comunque difficile.</div>`;
+    return;
+  }
+  const p2 = post(pre, f.pos), pLo = post(pre, f.lo), pHi = post(pre, f.hi);
+  const range = (f.lo===f.hi) ? "" : ` (intervallo di confidenza: ${pLo.toFixed(0)}–${pHi.toFixed(0)}%)`;
+  const cls = p2>=50 ? "risk-high" : (p2>=20 ? "risk-mid" : "risk-low");
+  out.innerHTML = `<div class="big">${p2.toFixed(1)}%</div><span class="pill ${cls}">da ${pre}% a ${p2.toFixed(1)}% (LR+ ${f.pos})</span><div class="detail">Probabilità post-test${range}. Calcolata come odds di base × LR+ per un singolo reperto.</div>`;
+}
+["lr-pre","lr-state","lr-finding"].forEach(id=>document.getElementById(id).addEventListener("input", renderLR));
+renderLR();
+
+/* ---------- Tabs ---------- */
+const tabs = document.querySelectorAll("nav.tabs button");
+function showView(name){
+  tabs.forEach(b=>b.classList.toggle("active", b.dataset.view===name));
+  document.querySelectorAll("section.view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  window.scrollTo({top:0,behavior:"instant"});
+}
+tabs.forEach(btn=>btn.addEventListener("click", ()=>showView(btn.dataset.view)));
+
+/* ---------- Report / PDF ---------- */
+const META = {
+  egri:   {name:"El-Ganzouri Risk Index (EGRI / SARI)", src:"El-Ganzouri et al., Anesth Analg 1996", note:"Soglia classica ≥4. Sensibilità aggregata 0,54 (meta-analisi 2024). Un punteggio sotto soglia non esclude una via aerea difficile."},
+  wilson: {name:"Wilson Risk Sum Score", src:"Wilson et al., Br J Anaesth 1988", note:"Soglia originale ≥2 (circa 12% di falsi positivi); molti studi usano >2. Sensibilità aggregata 0,42 (meta-analisi 2024)."},
+  lemon:  {name:"LEMON (checklist per l'emergenza)", src:"Reed et al., Emerg Med J 2005", note:"Nessuna soglia numerica validata: il conteggio dei criteri è un promemoria operativo."},
+  macocha:{name:"MACOCHA (terapia intensiva)", src:"De Jong et al., Am J Respir Crit Care Med 2013", note:"Soglia ≥3 (validazione: sensibilità 73%, specificità 89%, VPN 98%, VPP 36%). Non validato in sala operatoria né per la videolaringoscopia."}
+};
+const touched = {egri:false, wilson:false, lemon:false, macocha:false, lr:false};
+function esc(s){ return String(s).replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch])); }
+function collect(key){
+  const t = TOOLS[key]; let total = 0; const rows = [];
+  t.items.forEach(it=>{
+    const el = document.getElementById(key+"-"+it.id);
+    if(it.type==="select"){
+      const pts = parseInt(el.value); total += pts;
+      rows.push([it.label, el.options[el.selectedIndex].text.replace(/ \(\+\d+\)$/,""), pts]);
+    } else {
+      const pts = el.checked ? it.pts : 0; total += pts;
+      rows.push([it.label, el.checked ? "Sì" : "No", pts]);
+    }
+  });
+  return {total:total, max:t.max, r:t.interpret(total), rows:rows};
+}
+function lrSummary(){
+  const f = FINDINGS.find(x=>x.id===lrSel.value);
+  const pre = parseFloat(document.getElementById("lr-pre").value);
+  const state = document.getElementById("lr-state").value;
+  if(!f || !(pre>0 && pre<100)) return null;
+  if(state==="neg"){
+    if(f.neg===null) return {f:f, pre:pre, state:"Assente", lr:"non disponibile", post:"—"};
+    return {f:f, pre:pre, state:"Assente", lr:"LR− "+f.neg, post:post(pre,f.neg).toFixed(1)+"%"};
+  }
+  return {f:f, pre:pre, state:"Presente", lr:"LR+ "+f.pos, post:post(pre,f.pos).toFixed(1)+"%"};
+}
+function fmtDate(v){
+  if(!v) return "";
+  const d = new Date(v); if(isNaN(d)) return "";
+  return d.toLocaleString("it-IT", {day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"});
+}
+function renderReport(){
+  const patient = document.getElementById("rep-patient").value.trim();
+  const operator = document.getElementById("rep-operator").value.trim();
+  const when = fmtDate(document.getElementById("rep-date").value);
+  const notes = document.getElementById("rep-notes").value.trim();
+  let meta = '<table class="meta"><tbody>';
+  meta += '<tr><td class="k">Paziente</td><td>'+(patient?esc(patient):"&nbsp;")+'</td><td class="k">Data e ora</td><td>'+esc(when)+'</td></tr>';
+  meta += '<tr><td class="k">Valutatore</td><td colspan="3">'+(operator?esc(operator):"&nbsp;")+'</td></tr></tbody></table>';
+  document.getElementById("rep-meta").innerHTML = meta;
+
+  let body = "", sumParts = [];
+  ["egri","wilson","lemon","macocha"].forEach(key=>{
+    if(!document.getElementById("inc-"+key).checked) return;
+    const d = collect(key), m = META[key];
+    sumParts.push(m.name.split(" (")[0].replace(" Risk Index","").replace(" Risk Sum Score","")+" "+d.total+"/"+d.max+" ("+d.r.label.split(":")[0].replace(/\s*\(.*\)/,"").toLowerCase()+")");
+    body += '<div class="rblock"><h4>'+esc(m.name)+'</h4><div class="rsrc">'+esc(m.src)+'</div>'
+      + '<div class="rscore">Punteggio '+d.total+' / '+d.max+'<span class="rflag '+d.r.cls+'">'+esc(d.r.label)+'</span></div>'
+      + '<table class="items"><thead><tr><th>Criterio</th><th>Valore</th><th>Punti</th></tr></thead><tbody>'
+      + d.rows.map(r=>'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td class="pt">'+r[2]+'</td></tr>').join("")
+      + '</tbody></table><div class="rnote">'+esc(m.note)+'</div></div>';
+  });
+  if(document.getElementById("inc-lr").checked){
+    const s = lrSummary();
+    if(s){
+      sumParts.push("Probabilità post-test "+s.post);
+      body += '<div class="rblock"><h4>Probabilità post-test per un singolo reperto</h4><div class="rsrc">Detsky et al., JAMA 2019</div>'
+        + '<table class="items"><thead><tr><th>Reperto</th><th>Stato</th><th>Probabilità di base</th><th>Rapporto di verosimiglianza</th><th>Probabilità post-test</th></tr></thead><tbody>'
+        + '<tr><td>'+esc(s.f.label)+'</td><td>'+s.state+'</td><td>'+s.pre+'%</td><td>'+esc(s.lr)+'</td><td><strong>'+esc(s.post)+'</strong></td></tr></tbody></table>'
+        + '<div class="rnote">Calcolata per un singolo reperto. I rapporti di verosimiglianza di test diversi non vanno moltiplicati tra loro.</div></div>';
+    }
+  }
+  if(!body) body = '<p class="rnote" style="font-size:13.5px;">Nessuno strumento selezionato: compila uno degli score nelle altre schede, oppure spunta uno strumento tra quelli da includere.</p>';
+  document.getElementById("rep-summary").innerHTML = sumParts.length ? '<div class="summary"><strong>Sintesi</strong>: '+esc(sumParts.join("; "))+'.</div>' : "";
+  document.getElementById("rep-body").innerHTML = body;
+  document.getElementById("rep-notes-out").innerHTML = notes ? '<div class="rblock"><h4>Note cliniche</h4><div class="notes-box">'+esc(notes)+'</div></div>' : "";
+}
+function markTouched(key){
+  touched[key] = true;
+  const box = document.getElementById("inc-"+key);
+  if(box && !box.dataset.manual) box.checked = true;
+  renderReport();
+}
+["egri","wilson","lemon","macocha"].forEach(key=>{
+  TOOLS[key].items.forEach(it=>document.getElementById(key+"-"+it.id).addEventListener("change", ()=>markTouched(key)));
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "btn ghost no-print"; btn.textContent = "Stampa o salva il risultato in PDF";
+  btn.addEventListener("click", ()=>{ markTouched(key); showView("report"); });
+  document.getElementById("tool-"+key).parentElement.appendChild(btn);
+});
+["lr-pre","lr-state","lr-finding"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>markTouched("lr")));
+["egri","wilson","lemon","macocha","lr"].forEach(key=>{
+  document.getElementById("inc-"+key).addEventListener("change", e=>{ e.target.dataset.manual = "1"; renderReport(); });
+});
+["rep-patient","rep-operator","rep-date","rep-notes"].forEach(id=>document.getElementById(id).addEventListener("input", renderReport));
+(function initDate(){
+  const now = new Date(Date.now() - new Date().getTimezoneOffset()*60000);
+  document.getElementById("rep-date").value = now.toISOString().slice(0,16);
+})();
+let prevTitle = document.title;
+function beforePrint(){
+  renderReport();
+  prevTitle = document.title;
+  const p = document.getElementById("rep-patient").value.trim();
+  const dt = fmtDate(document.getElementById("rep-date").value).replace(/[\/:]/g,"-").replace(",","");
+  document.title = "Valutazione via aerea" + (p ? " - " + p : "") + (dt ? " - " + dt : "");
+}
+function afterPrint(){ document.title = prevTitle; }
+window.addEventListener("beforeprint", beforePrint);
+window.addEventListener("afterprint", afterPrint);
+document.getElementById("btn-print").addEventListener("click", ()=>{ beforePrint(); window.print(); });
+renderReport();
+</script>
+</body>
+</html>
